@@ -1,0 +1,303 @@
+[
+    {
+      "incident_number": "INC1001",
+      "incident_description": "VPN disconnects after 5 minutes of inactivity",
+      "impact": "Remote employees lose session",
+      "urgency": "High",
+      "priority": "P1",
+      "closure_notes": "Updated VPN client to latest version; disabled sleep timeout.",
+      "state": "Closed",
+      "assigned_to": "Alice"
+    },
+    {
+      "incident_number": "INC1002",
+      "incident_description": "Outlook crashes on opening",
+      "impact": "Employee cannot access email",
+      "urgency": "Medium",
+      "priority": "P2",
+      "closure_notes": "Repaired Office installation and cleared Outlook cache.",
+      "state": "Resolved",
+      "assigned_to": "Bob"
+    },
+    {
+      "incident_number": "INC1003",
+      "incident_description": "User unable to login to domain account",
+      "impact": "Blocked from accessing computer",
+      "urgency": "High",
+      "priority": "P1",
+      "closure_notes": "Reset AD password and unlocked user account.",
+      "state": "Closed",
+      "assigned_to": "Diana"
+    },
+    {
+      "incident_number": "INC1004",
+      "incident_description": "Printer queue stuck with multiple pending jobs",
+      "impact": "Delayed invoice printing",
+      "urgency": "Medium",
+      "priority": "P2",
+      "closure_notes": "Cleared spooler and restarted print service.",
+      "state": "Resolved",
+      "assigned_to": "Charlie"
+    },
+    {
+      "incident_number": "INC1005",
+      "incident_description": "Wi-Fi access not available in meeting rooms",
+      "impact": "Meetings disrupted",
+      "urgency": "High",
+      "priority": "P1",
+      "closure_notes": "Extended network coverage with range extenders.",
+      "state": "Closed",
+      "assigned_to": "Eve"
+    },
+    {
+      "incident_number": "INC1006",
+      "incident_description": "Error 1722 during antivirus installation",
+      "impact": "System remains vulnerable",
+      "urgency": "Low",
+      "priority": "P3",
+      "closure_notes": "Ran full installer manually and restarted PC.",
+      "state": "Closed",
+      "assigned_to": "Frank"
+    },
+    {
+      "incident_number": "INC1007",
+      "incident_description": "VPN certificate expired",
+      "impact": "All remote logins failing",
+      "urgency": "Critical",
+      "priority": "P1",
+      "closure_notes": "Renewed certificate and updated firewall policy.",
+      "state": "Closed",
+      "assigned_to": "Alice"
+    },
+    {
+      "incident_number": "INC1008",
+      "incident_description": "Outlook prompts repeatedly for password",
+      "impact": "User unable to send/receive emails",
+      "urgency": "Medium",
+      "priority": "P2",
+      "closure_notes": "Cleared credentials and recreated mail profile.",
+      "state": "Resolved",
+      "assigned_to": "Bob"
+    },
+    {
+      "incident_number": "INC1009",
+      "incident_description": "User account locked after failed attempts",
+      "impact": "Employee locked out",
+      "urgency": "High",
+      "priority": "P1",
+      "closure_notes": "Unlocked account and provided password reset link.",
+      "state": "Closed",
+      "assigned_to": "Diana"
+    },
+    {
+      "incident_number": "INC1010",
+      "incident_description": "Printer prints blank pages",
+      "impact": "Wasted resources",
+      "urgency": "Low",
+      "priority": "P3",
+      "closure_notes": "Replaced toner cartridge and aligned printer heads.",
+      "state": "Closed",
+      "assigned_to": "Charlie"
+    },
+    {
+      "incident_number": "INC1011",
+      "incident_description": "Slow internet on 2nd floor",
+      "impact": "Reduced productivity",
+      "urgency": "Medium",
+      "priority": "P2",
+      "closure_notes": "Replaced faulty switch and balanced network load.",
+      "state": "Closed",
+      "assigned_to": "Eve"
+    },
+    {
+      "incident_number": "INC1012",
+      "incident_description": "Antivirus blocks internal application",
+      "impact": "App unusable",
+      "urgency": "Medium",
+      "priority": "P2",
+      "closure_notes": "Whitelisted application in antivirus settings.",
+      "state": "Resolved",
+      "assigned_to": "Frank"
+    },
+    {
+      "incident_number": "INC1013",
+      "incident_description": "VPN requires MFA every time",
+      "impact": "Slows down access",
+      "urgency": "Low",
+      "priority": "P3",
+      "closure_notes": "Configured trust device settings for VPN.",
+      "state": "Resolved",
+      "assigned_to": "Alice"
+    },
+    {
+      "incident_number": "INC1014",
+      "incident_description": "Outlook shows 0x800ccc0e error",
+      "impact": "No emails can be sent",
+      "urgency": "High",
+      "priority": "P1",
+      "closure_notes": "Disabled antivirus email scanning and restarted Outlook.",
+      "state": "Closed",
+      "assigned_to": "Bob"
+    },
+    {
+      "incident_number": "INC1015",
+      "incident_description": "User can't login to webmail",
+      "impact": "Missed time-sensitive messages",
+      "urgency": "High",
+      "priority": "P1",
+      "closure_notes": "Cleared browser cache and reset password.",
+      "state": "Closed",
+      "assigned_to": "Diana"
+    },
+    {
+      "incident_number": "INC1016",
+      "incident_description": "Printer skips pages intermittently",
+      "impact": "Incomplete documents",
+      "urgency": "Low",
+      "priority": "P3",
+      "closure_notes": "Updated firmware and cleaned rollers.",
+      "state": "Resolved",
+      "assigned_to": "Charlie"
+    },
+    {
+      "incident_number": "INC1017",
+      "incident_description": "New users can't see Wi-Fi SSID",
+      "impact": "Cannot join company network",
+      "urgency": "Medium",
+      "priority": "P2",
+      "closure_notes": "Enabled SSID broadcast on guest VLAN.",
+      "state": "Closed",
+      "assigned_to": "Eve"
+    },
+    {
+      "incident_number": "INC1018",
+      "incident_description": "Antivirus installation stuck at 99%",
+      "impact": "Software does not activate",
+      "urgency": "Low",
+      "priority": "P3",
+      "closure_notes": "Manually killed installer task and reran in safe mode.",
+      "state": "Closed",
+      "assigned_to": "Frank"
+    },
+    {
+      "incident_number": "INC1019",
+      "incident_description": "VPN connects but internal sites not reachable",
+      "impact": "Remote access limited",
+      "urgency": "High",
+      "priority": "P1",
+      "closure_notes": "Pushed updated routing rules to VPN config.",
+      "state": "Resolved",
+      "assigned_to": "Alice"
+    },
+    {
+      "incident_number": "INC1020",
+      "incident_description": "Outlook calendar not syncing",
+      "impact": "Meeting invites missed",
+      "urgency": "Medium",
+      "priority": "P2",
+      "closure_notes": "Re-synced calendar and repaired OST file.",
+      "state": "Closed",
+      "assigned_to": "Bob"
+    },
+    {
+      "incident_number": "INC1021",
+      "incident_description": "User sees 'Access Denied' on login",
+      "impact": "Cannot enter workstation",
+      "urgency": "High",
+      "priority": "P1",
+      "closure_notes": "Corrected user group policy and rejoined domain.",
+      "state": "Closed",
+      "assigned_to": "Diana"
+    },
+    {
+      "incident_number": "INC1022",
+      "incident_description": "Printer prints faded text",
+      "impact": "Unreadable reports",
+      "urgency": "Low",
+      "priority": "P3",
+      "closure_notes": "Cleaned print head and changed toner.",
+      "state": "Closed",
+      "assigned_to": "Charlie"
+    },
+    {
+      "incident_number": "INC1023",
+      "incident_description": "Wi-Fi drops every 10 minutes",
+      "impact": "Frequent disconnections",
+      "urgency": "Medium",
+      "priority": "P2",
+      "closure_notes": "Upgraded firmware and replaced access point.",
+      "state": "Resolved",
+      "assigned_to": "Eve"
+    },
+    {
+      "incident_number": "INC1024",
+      "incident_description": "Installer fails due to missing .NET framework",
+      "impact": "App cannot be used",
+      "urgency": "Low",
+      "priority": "P3",
+      "closure_notes": "Manually installed .NET and reran installer.",
+      "state": "Closed",
+      "assigned_to": "Frank"
+    },
+    {
+      "incident_number": "INC1025",
+      "incident_description": "VPN fails on macOS after update",
+      "impact": "Mac users can't connect",
+      "urgency": "High",
+      "priority": "P1",
+      "closure_notes": "Reconfigured IKEv2 profiles and applied patch.",
+      "state": "Resolved",
+      "assigned_to": "Alice"
+    },
+    {
+      "incident_number": "INC1026",
+      "incident_description": "Outlook showing disconnected status",
+      "impact": "No email access",
+      "urgency": "High",
+      "priority": "P1",
+      "closure_notes": "Checked Exchange server, reconnected account.",
+      "state": "Closed",
+      "assigned_to": "Bob"
+    },
+    {
+      "incident_number": "INC1027",
+      "incident_description": "User gets login error due to expired password",
+      "impact": "Unable to access system",
+      "urgency": "Medium",
+      "priority": "P2",
+      "closure_notes": "Helped user reset password via self-service portal.",
+      "state": "Resolved",
+      "assigned_to": "Diana"
+    },
+    {
+      "incident_number": "INC1028",
+      "incident_description": "Printer jams with every print job",
+      "impact": "Delays in document delivery",
+      "urgency": "Medium",
+      "priority": "P2",
+      "closure_notes": "Replaced fuser unit and cleared paper path.",
+      "state": "Resolved",
+      "assigned_to": "Charlie"
+    },
+    {
+      "incident_number": "INC1029",
+      "incident_description": "Employees can't find Wi-Fi after password change",
+      "impact": "No network connectivity",
+      "urgency": "Medium",
+      "priority": "P2",
+      "closure_notes": "Informed users and pushed updated config to devices.",
+      "state": "Closed",
+      "assigned_to": "Eve"
+    },
+    {
+      "incident_number": "INC1030",
+      "incident_description": "Antivirus conflicts with accounting software",
+      "impact": "App doesn't launch",
+      "urgency": "Medium",
+      "priority": "P2",
+      "closure_notes": "Created exception rule in antivirus.",
+      "state": "Resolved",
+      "assigned_to": "Frank"
+    }
+  ]
+  
