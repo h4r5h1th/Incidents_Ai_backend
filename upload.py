@@ -1,25 +1,57 @@
-from qdrant_client import QdrantClient
-from qdrant_client.models import PointStruct
-from sentence_transformers import SentenceTransformer
-import json, uuid, os
+import os
+import uuid
+import json
 from dotenv import load_dotenv
+import cohere
+import httpx
 
+# Load environment variables
 load_dotenv()
-client = QdrantClient(api_key=os.getenv("QDRANT_API_KEY"), url=os.getenv("QDRANT_URL"))
-model = SentenceTransformer("all-MiniLM-L6-v2")
 
+COHERE_API_KEY = os.getenv("COHERE_API_KEY")
+QDRANT_URL = os.getenv("QDRANT_URL")  # e.g., https://your-qdrant-cloud-instance.com
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+COLLECTION_NAME = "incidents"
+
+# Initialize Cohere
+co = cohere.ClientV2(api_key=COHERE_API_KEY)
+
+# Load data
 with open("incidents.json") as f:
     data = json.load(f)
 
-points = []
+# Prepare and upload points
 for incident in data:
-    vector = model.encode(incident["incident_description"]).tolist()
-    point = PointStruct(
-        id=str(uuid.uuid4()),
-        vector=vector,
-        payload=incident
-    )
-    points.append(point)
+    description = incident["incident_description"]
 
-client.upsert(collection_name="incidents", points=points)
-print("Uploaded!")
+    # Get embedding from Cohere v2
+    response = co.embed(
+        texts=[description],
+        model="embed-v4.0",
+        input_type="search_document",
+        embedding_types=["float"]
+    )
+
+    vector = response.embeddings.float[0]
+
+    # Format point
+    point = {
+        "id": str(uuid.uuid4()),
+        "vector": vector,
+        "payload": incident
+    }
+
+    # Upload to Qdrant cloud
+    res = httpx.put(
+        f"{QDRANT_URL}/collections/{COLLECTION_NAME}/points",
+        headers={
+            "api-key": QDRANT_API_KEY,
+            "Content-Type": "application/json"
+        },
+        json={"points": [point]},
+        timeout=30.0
+    )
+    
+    res.raise_for_status()  # Throw error if upload fails
+
+print("✅ All incidents uploaded to Qdrant Cloud.")

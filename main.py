@@ -2,18 +2,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from typing import List
 import httpx
 import os
-from qdrant_client import QdrantClient
-from sentence_transformers import SentenceTransformer
-import json
 
 # Load environment variables
 load_dotenv()
 
 app = FastAPI()
 
-# CORS configuration
+# CORS setup
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -24,31 +22,61 @@ app.add_middleware(
 
 # Environment variables
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_MODEL = "llama3-70b-8192"
-QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
+COHERE_API_KEY = os.getenv("COHERE_API_KEY")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_COLLECTION = "incidents"
 
-# Clients
-qdrant = QdrantClient(url=QDRANT_URL, api_key=os.getenv("QDRANT_API_KEY"))
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
-
-# Request schema
 class PromptRequest(BaseModel):
     prompt: str
 
-# Fetch incidents from Qdrant
-def get_incidents_from_qdrant(prompt: str, top_k: int = 5) -> list[dict]:
-    embedded_prompt = embedder.encode(prompt).tolist()
-    results = qdrant.search(
-        collection_name=QDRANT_COLLECTION,
-        query_vector=embedded_prompt,
-        limit=top_k
-    )
+# Function: get embedding from Cohere
+def get_embedding(text: str) -> List[float]:
+    headers = {
+        "Authorization": f"Bearer {COHERE_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "embed-english-light-v3.0",  # ✅ This returns exactly 384 dims
+        "texts": [text],
+        "input_type": "search_query"
+    }
+
+    response = httpx.post("https://api.cohere.ai/v1/embed", headers=headers, json=payload, timeout=15.0)
+    response.raise_for_status()
+    embedding = response.json()["embeddings"][0]
+
+    if len(embedding) != 384:
+        raise ValueError(f"Expected embedding size 384, got {len(embedding)}")
+
+    return embedding
+
+
+# Function: search Qdrant
+def get_incidents_from_qdrant(prompt: str, top_k: int = 5) -> List[dict]:
+    embedded_prompt = get_embedding(prompt)
+
+    headers = {
+        "Content-Type": "application/json",
+        "api-key": QDRANT_API_KEY,
+    }
+
+    payload = {
+        "vector": embedded_prompt,
+        "limit": top_k,
+        "with_payload": True
+    }
+
+    url = f"{QDRANT_URL}/collections/{QDRANT_COLLECTION}/points/search"
+    response = httpx.post(url, headers=headers, json=payload, timeout=15.0)
+    response.raise_for_status()
+    results = response.json()["result"]
+
     incidents = []
     for hit in results:
-        payload = hit.payload
+        payload = hit["payload"]
         incidents.append({
-            "incident": payload.get("incident_id", f"INC{hit.id}"),
+            "incident": payload.get("incident_id", f"INC{hit['id']}"),
             "description": payload.get("incident_description", ""),
             "closure_notes": payload.get("closure_notes", ""),
             "assigned_to": payload.get("assigned_to", "Unknown"),
@@ -59,8 +87,8 @@ def get_incidents_from_qdrant(prompt: str, top_k: int = 5) -> list[dict]:
         })
     return incidents
 
-# Call LLM and return HTML
-def call_groq_llm(user_prompt: str, incidents: list[dict]) -> dict:
+# Function: call Groq LLM
+def call_groq_llm(user_prompt: str, incidents: List[dict]) -> dict:
     system_prompt = """
     You are an AI incident support assistant.
 
@@ -78,7 +106,6 @@ def call_groq_llm(user_prompt: str, incidents: list[dict]) -> dict:
     - Only respond with valid HTML.
     - If the prompt is not incident-related, return: <p>Sorry, I can only discuss incident-related issues.</p>
     """
-
 
     formatted_incidents = "\n\n".join([
         f"Incident {i+1}:\n"
@@ -103,7 +130,7 @@ Past Relevant Incidents:
     }
 
     payload = {
-        "model": GROQ_MODEL,
+        "model": "llama3-70b-8192",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": full_prompt}
@@ -112,14 +139,17 @@ Past Relevant Incidents:
         "max_tokens": 2048,
     }
 
-    response = httpx.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload)
+    response = httpx.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=30.0)
     response.raise_for_status()
     content = response.json()["choices"][0]["message"]["content"]
 
     return {"html": content}
 
-# Endpoint
+# FastAPI endpoint
 @app.post("/chat")
 def chat(request: PromptRequest):
-    incidents = get_incidents_from_qdrant(request.prompt)
-    return call_groq_llm(request.prompt, incidents)
+    try:
+        incidents = get_incidents_from_qdrant(request.prompt)
+        return call_groq_llm(request.prompt, incidents)
+    except Exception as e:
+        return {"error": str(e)}

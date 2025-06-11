@@ -1,7 +1,5 @@
 fastapi
+httpx
 uvicorn
 python-dotenv
-httpx
-sentence-transformers
-qdrant-client
 pydantic
