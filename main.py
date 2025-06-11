@@ -105,7 +105,7 @@ def call_groq_llm(user_prompt: str, incidents: List[dict]) -> dict:
     - DO NOT use markdown or backticks.
     - Only respond with valid HTML.
     - if something feels related and needs to be anwsered in different structure then you can do it in different structure but should always be sending response in html as mentioned above the structure need not to be the same.
-    - But try to follow this structure when ever you can but it shouldn't feel out of place.
+    - But try to follow this structure but if table is not required then you can exclude it.
     - If the prompt is not incident-related, return: <p>Sorry, I can only discuss incident-related issues.</p>
     """
 
