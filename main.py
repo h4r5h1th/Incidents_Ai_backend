@@ -194,7 +194,6 @@ Relevant Incidents:
     response = httpx.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=30.0)
 
     print("🧠 Groq response status:", response.status_code)
-    print("🧠 Groq raw response:", response.text)
 
     response.raise_for_status()
     content = response.json()["choices"][0]["message"]["content"]
