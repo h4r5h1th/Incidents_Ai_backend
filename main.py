@@ -5,6 +5,9 @@ from dotenv import load_dotenv
 from typing import List
 import httpx
 import os
+import traceback
+from docx import Document
+from io import BytesIO
 
 # Load environment variables
 load_dotenv()
@@ -26,41 +29,59 @@ COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_COLLECTION = "incidents"
+SOLUTION_DOC_URL = os.getenv("SOLUTION_DOC_URL")
+
 
 class PromptRequest(BaseModel):
     prompt: str
 
-# Function: get embedding from Cohere
+
+# 🔹 Load solution doc from Google Drive or URL
+def get_docx_text_from_url(url: str) -> str:
+    response = httpx.get(url, follow_redirects=True)  # ✅ FIXED: follow redirects
+    response.raise_for_status()
+    doc = Document(BytesIO(response.content))
+    return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+
+
+# 🔹 Get embedding from Cohere
 def get_embedding(text: str) -> List[float]:
     headers = {
         "Authorization": f"Bearer {COHERE_API_KEY}",
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "embed-english-light-v3.0",  # ✅ This returns exactly 384 dims
+        "model": "embed-v4.0",
         "texts": [text],
-        "input_type": "search_query"
+        "input_type": "search_query",
+        "embedding_types": ["float"]
     }
 
-    response = httpx.post("https://api.cohere.ai/v1/embed", headers=headers, json=payload, timeout=15.0)
+    response = httpx.post("https://api.cohere.ai/v2/embed", headers=headers, json=payload, timeout=15.0)
     response.raise_for_status()
-    embedding = response.json()["embeddings"][0]
+    res_json = response.json()
 
-    if len(embedding) != 384:
-        raise ValueError(f"Expected embedding size 384, got {len(embedding)}")
+    embeddings_list = res_json.get("embeddings", {}).get("float", [])
+
+    if not embeddings_list:
+        raise ValueError(f"❌ Embeddings missing or empty: {res_json}")
+
+    embedding = embeddings_list[0]
+
+    if len(embedding) != 1536:
+        raise ValueError(f"Expected embedding size 1536, got {len(embedding)}")
 
     return embedding
 
 
-# Function: search Qdrant
-def get_incidents_from_qdrant(prompt: str, top_k: int = 5) -> List[dict]:
+# 🔹 Search Qdrant vector DB
+def get_incidents_from_qdrant(prompt: str, top_k: int = 10) -> List[dict]:
     embedded_prompt = get_embedding(prompt)
 
     headers = {
         "Content-Type": "application/json",
         "api-key": QDRANT_API_KEY,
     }
-
     payload = {
         "vector": embedded_prompt,
         "limit": top_k,
@@ -69,14 +90,25 @@ def get_incidents_from_qdrant(prompt: str, top_k: int = 5) -> List[dict]:
 
     url = f"{QDRANT_URL}/collections/{QDRANT_COLLECTION}/points/search"
     response = httpx.post(url, headers=headers, json=payload, timeout=15.0)
+
+    print("🔍 Qdrant search status:", response.status_code)
+
     response.raise_for_status()
-    results = response.json()["result"]
+    results = response.json().get("result", [])
+
+    if not results:
+        raise ValueError("Qdrant search returned no results.")
 
     incidents = []
     for hit in results:
-        payload = hit["payload"]
+        payload = hit.get("payload", {})
+        incident_id = payload.get("incident_number")  # FIXED field name
+
+        if not incident_id:
+            raise ValueError(f"Incident missing 'incident_number': {payload}")
+
         incidents.append({
-            "incident": payload.get("incident_id", f"INC{hit['id']}"),
+            "incident": incident_id,
             "description": payload.get("incident_description", ""),
             "closure_notes": payload.get("closure_notes", ""),
             "assigned_to": payload.get("assigned_to", "Unknown"),
@@ -87,30 +119,46 @@ def get_incidents_from_qdrant(prompt: str, top_k: int = 5) -> List[dict]:
         })
     return incidents
 
-# Function: call Groq LLM
+
+# 🔹 Call Groq LLM with full data
 def call_groq_llm(user_prompt: str, incidents: List[dict]) -> dict:
     system_prompt = """
-    You are an AI incident support assistant.
+You are an AI incident support assistant.
 
-    Given past incidents, return your response as raw HTML with these sections:
-    - <h3>Summary</h3><p>...</p>
-    - <h3>Steps to Resolution</h3><ol>...</ol>
-    - <h3>People Involved</h3><ul>...</ul>
-    - <h3>Incident Summary Table</h3>
-    <table>
-        Include columns: Incident ID, Description, Closure Notes, Assigned To, Priority, Urgency, State.
-    </table>
+You are given:
+1. A user prompt,
+2. A list of past incidents,
+3. A mandatory solution guide.
 
-    Important:
-    - DO NOT use markdown or backticks.
-    - Only respond with valid HTML.
-    - if something feels related and needs to be anwsered in different structure then you can do it in different structure but should always be sending response in html as mentioned above. structure need not to be the same.
-    - But try to follow this structure but if table is not required then you can exclude it.
-    - If the prompt is not incident-related, return: <p>Sorry, I can only discuss incident-related issues.</p>
-    """
+You MUST respond in raw HTML format only.
 
+**Rules**:
+- For ANY incident-related question (even if not explicitly about resolution), you MUST include:
+  - <h3>Steps to Resolution</h3> derived from the solution guide.
+- If the user prompt is unrelated to incidents, respond with:
+  <p>Sorry, I can only discuss incident-related issues.</p>
+
+Respond using valid HTML only. Do not use Markdown.
+
+Include the following sections:
+- <h3>Summary</h3><p>...</p>
+- <h3>Steps to Resolution</h3><ol>...</ol>
+- <h3>People Involved</h3><ul>...</ul>
+- <h3>Incident Summary Table</h3><table>...</table>
+"""
+
+    # Load solution guide
+    try:
+        print("⚙️ Loading solution doc and embeddings...")
+        solution_guide = get_docx_text_from_url(SOLUTION_DOC_URL)
+    except Exception as e:
+        print(f"❌ Failed to load solution guide: {e}")
+        solution_guide = "Solution guide not available."
+
+    # Format incidents
     formatted_incidents = "\n\n".join([
         f"Incident {i+1}:\n"
+        f"Incident ID: {d['incident']}\n"
         f"Description: {d['description']}\n"
         f"Closure Notes: {d['closure_notes']}\n"
         f"Resolved By: {d['assigned_to']}\n"
@@ -122,7 +170,10 @@ def call_groq_llm(user_prompt: str, incidents: List[dict]) -> dict:
     full_prompt = f"""
 User Prompt: "{user_prompt}"
 
-Past Relevant Incidents:
+Mandatory Solution Guide:
+{solution_guide}
+
+Relevant Incidents:
 {formatted_incidents}
 """
 
@@ -130,7 +181,6 @@ Past Relevant Incidents:
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json",
     }
-
     payload = {
         "model": "llama3-70b-8192",
         "messages": [
@@ -142,16 +192,22 @@ Past Relevant Incidents:
     }
 
     response = httpx.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=30.0)
+
+    print("🧠 Groq response status:", response.status_code)
+    print("🧠 Groq raw response:", response.text)
+
     response.raise_for_status()
     content = response.json()["choices"][0]["message"]["content"]
-
     return {"html": content}
 
-# FastAPI endpoint
+
+# 🔹 FastAPI endpoint
 @app.post("/chat")
 def chat(request: PromptRequest):
     try:
+        print("📨 Prompt received:", request.prompt)
         incidents = get_incidents_from_qdrant(request.prompt)
         return call_groq_llm(request.prompt, incidents)
     except Exception as e:
-        return {"error": str(e)}
+        traceback.print_exc()
+        return {"error": f"{type(e).__name__}: {str(e)}"}
