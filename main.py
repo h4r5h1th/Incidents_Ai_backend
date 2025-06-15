@@ -75,7 +75,7 @@ def get_embedding(text: str) -> List[float]:
 
 
 # 🔹 Search Qdrant vector DB
-def get_incidents_from_qdrant(prompt: str, top_k: int = 10) -> List[dict]:
+def get_incidents_from_qdrant(prompt: str, top_k: int = 30) -> List[dict]:
     embedded_prompt = get_embedding(prompt)
 
     headers = {
