@@ -979,8 +979,8 @@ You MUST respond in raw HTML format only.
 and skip all related sections.
 - DO NOT render any value that is missing, "None", or "Unknown".
 - OMIT entire sections if no valid data is available.
-- For "Steps to Resolution (From Similar Incidents)" - extract and synthesize steps from closure_notes field of incidents
-- For "Original Steps to Resolution (From Guide)" - use the provided solution guide content
+- For "Summary of Closure notes" - extract and synthesize steps from closure_notes field of incidents
+- For "Steps to Resolution" - use the provided solution guide content
 - Ensure all HTML output is clean and avoid displaying empty placeholders or filler data.
 - Summary Table should atleast have 3 or more fields like Incident ID, Description, State or closure notes
 
@@ -988,8 +988,8 @@ Respond using valid HTML only. Do not use Markdown.
 
 If incident data exists and is relevant, include these sections (with actual content only):
 - <h3>Summary</h3><p>...</p>
-- <h3>Steps to Resolution (From Similar Incidents)</h3><ol>...</ol>
-- <h3>Original Steps to Resolution (From Guide)</h3><ol>...</ol>
+- <h3>Summary of Closure notes</h3><ol>...</ol>
+- <h3>Steps to Resolution</h3><ol>...</ol>
 - <h3>Incident Summary Table</h3><table>...</table>
 """
 
