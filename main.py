@@ -956,39 +956,42 @@ def compute_analytics(incidents: List[dict], user_prompt: str) -> str:
 def call_groq_llm(user_prompt: str, incidents: List[dict]) -> dict:
     # ✅ UPDATED SYSTEM PROMPT TO MATCH NEW JSON STRUCTURE
     system_prompt = """
-    You are an AI incident support assistant...
+You are an AI incident support assistant...
 
-    You are given:
-    1. A user prompt,
-    2. A list of past incidents,
-    3. A mandatory solution guide.
+You are given:
+1. A user prompt,
+2. A list of past incidents,
+3. A mandatory solution guide.
 
-    You MUST respond in raw HTML format only.
+You MUST respond in raw HTML format only.
 
-    **Rules**:
-    - For ANY incident-related question (even if not explicitly about resolution), you MUST include:
-    - <h3>Steps to Resolution</h3> derived from the solution guide (only if the guide is available).
-    - If the user prompt is unrelated to incidents or pointing out mistake in your previous prompt, respond with:
-    <p>Sorry, I can only discuss incident-related issues.</p>
+**Rules**:
+- For ANY incident-related question (even if not explicitly about resolution), you MUST include:
+  - <h3>Steps to Resolution (From Similar Incidents)</h3> - derived from closure notes of similar incidents
+  - <h3>Original Steps to Resolution (From Guide)</h3> - from the solution guide (only if the guide is available)
+- If the user prompt is unrelated to incidents or pointing out mistake in your previous prompt, respond with:
+<p>Sorry, I can only discuss incident-related issues.</p>
 
-    **Important Formatting Logic**:
-    - While producing output follow the flow don't randomize the flow
-    - If NO incidents are relevant or found, simply say:
-    <p>No incidents found for this query.</p>
-    and skip all related sections.
-    - DO NOT render any value that is missing, "None", or "Unknown".
-    - OMIT entire sections (like Steps to Resolution, People Involved, Summary Table) if no valid data is available.
-    - Ensure all HTML output is clean and avoid displaying empty placeholders or filler data.
-    - Summary Table should atleast have 3 or more fields like Incident ID, Description, State or closure notes
+**Important Formatting Logic**:
+- While producing output follow the flow don't randomize the flow
+- If NO incidents are relevant or found, simply say:
+<p>No incidents found for this query.</p>
+and skip all related sections.
+- DO NOT render any value that is missing, "None", or "Unknown".
+- OMIT entire sections if no valid data is available.
+- For "Steps to Resolution (From Similar Incidents)" - extract and synthesize steps from closure_notes field of incidents
+- For "Original Steps to Resolution (From Guide)" - use the provided solution guide content
+- Ensure all HTML output is clean and avoid displaying empty placeholders or filler data.
+- Summary Table should atleast have 3 or more fields like Incident ID, Description, State or closure notes
 
-    Respond using valid HTML only. Do not use Markdown.
+Respond using valid HTML only. Do not use Markdown.
 
-    If incident data exists and is relevant, include these sections (with actual content only):
-    - <h3>Summary</h3><p>...</p>
-    - <h3>Steps to Resolution</h3><ol>...</ol>
-    - <h3>Incident Summary Table</h3><table>...</table>
-
-    """
+If incident data exists and is relevant, include these sections (with actual content only):
+- <h3>Summary</h3><p>...</p>
+- <h3>Steps to Resolution (From Similar Incidents)</h3><ol>...</ol>
+- <h3>Original Steps to Resolution (From Guide)</h3><ol>...</ol>
+- <h3>Incident Summary Table</h3><table>...</table>
+"""
 
     try:
         print("⚙️ Loading solution doc and embeddings...")
@@ -1022,15 +1025,25 @@ def call_groq_llm(user_prompt: str, incidents: List[dict]) -> dict:
     print(f"📋 First few incidents: {incidents[:2] if incidents else 'None'}")
     print(f"📖 Solution guide length: {len(solution_guide)} characters")
 
+    # Extract closure notes for resolution steps
+    closure_notes_summary = "\n".join([
+        f"Incident {d['incident']}: {d['closure_notes']}" 
+        for d in incidents 
+        if d.get('closure_notes') and d['closure_notes'].strip() and d['closure_notes'] != 'N/A'
+    ])
+
     full_prompt = f"""
-User Prompt: \"{user_prompt}\"
+    User Prompt: \"{user_prompt}\"
 
-Mandatory Solution Guide:
-{solution_guide}
+    Solution Guide (for Original Steps):
+    {solution_guide}
 
-Relevant Incidents:
-{formatted_incidents}
-"""
+    Closure Notes from Similar Incidents (for practical resolution steps):
+    {closure_notes_summary}
+
+    Relevant Incidents:
+    {formatted_incidents}
+    """
 
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
