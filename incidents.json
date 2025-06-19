@@ -6,7 +6,7 @@
       "urgency": "High",
       "priority": "P1",
       "closure_notes": "Updated VPN client to latest version; disabled sleep timeout.",
-      "state": "Closed",
+      "state": "Open",
       "assigned_to": "Alice"
     },
     {
@@ -66,7 +66,7 @@
       "urgency": "Critical",
       "priority": "P1",
       "closure_notes": "Renewed certificate and updated firewall policy.",
-      "state": "Closed",
+      "state": "Open",
       "assigned_to": "Alice"
     },
     {
@@ -246,7 +246,7 @@
       "urgency": "High",
       "priority": "P1",
       "closure_notes": "Reconfigured IKEv2 profiles and applied patch.",
-      "state": "Resolved",
+      "state": "Open",
       "assigned_to": "Alice"
     },
     {
