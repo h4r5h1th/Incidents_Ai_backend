@@ -11,13 +11,13 @@ load_dotenv()
 COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
-COLLECTION_NAME = "incidents"
+COLLECTION_NAME = "office_incidents"
 
 # Initialize Cohere client
 co = cohere.ClientV2(api_key=COHERE_API_KEY)
 
 # Step 1: Delete existing collection (if any)
-delete_response = httpx.delete(
+httpx.delete(
     f"{QDRANT_URL}/collections/{COLLECTION_NAME}",
     headers={
         "api-key": QDRANT_API_KEY,
@@ -28,7 +28,7 @@ delete_response = httpx.delete(
 print(f"🗑️ Deleted existing collection '{COLLECTION_NAME}' (if it existed).")
 
 # Step 2: Create new collection with 1536-dim vectors
-create_response = httpx.put(
+httpx.put(
     f"{QDRANT_URL}/collections/{COLLECTION_NAME}",
     headers={
         "api-key": QDRANT_API_KEY,
@@ -45,13 +45,17 @@ create_response = httpx.put(
 print(f"✅ Created new collection '{COLLECTION_NAME}' with 1536-dim vectors.")
 
 # Step 3: Load incidents from JSON file
-with open("backend/incidents.json") as f:
+with open("backend/incidents.json", encoding='utf-8') as f:
     data = json.load(f)
 
-# Step 4: Embed and upload incidents
+# Step 4: Embed and upload each incident
 for i, incident in enumerate(data, 1):
-    description = incident["incident_description"]
+    description = incident.get("description", "")
+    if not description:
+        print(f"⚠️ Skipping incident {i}: missing description.")
+        continue
 
+    # Generate vector embedding for the description field
     embed_response = co.embed(
         texts=[description],
         model="embed-v4.0",
@@ -60,12 +64,14 @@ for i, incident in enumerate(data, 1):
     )
     vector = embed_response.embeddings.float[0]
 
+    # Construct vector point with full payload
     point = {
         "id": str(uuid.uuid4()),
         "vector": vector,
-        "payload": incident
+        "payload": incident  # full metadata for filtering/search
     }
 
+    # Upload to Qdrant
     res = httpx.put(
         f"{QDRANT_URL}/collections/{COLLECTION_NAME}/points",
         headers={

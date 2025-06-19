@@ -33,20 +33,28 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 QDRANT_URL = os.getenv("QDRANT_URL")
-QDRANT_COLLECTION = "incidents"
-SOLUTION_DOC_URL = os.getenv("SOLUTION_DOC_URL")
+QDRANT_COLLECTION = "office_incidents"
 
 
 class PromptRequest(BaseModel):
     prompt: str
 
-
-def get_docx_text_from_url(url: str) -> str:
-    response = httpx.get(url, follow_redirects=True)
+def query_solutions_from_qdrant(prompt: str, top_k: int = 3) -> str:
+    embedding = get_embedding(prompt)
+    headers = {
+        "Content-Type": "application/json",
+        "api-key": QDRANT_API_KEY,
+    }
+    payload = {
+        "vector": embedding,
+        "limit": top_k,
+        "with_payload": True
+    }
+    url = f"{QDRANT_URL}/collections/solutions_guide/points/search"
+    response = httpx.post(url, headers=headers, json=payload)
     response.raise_for_status()
-    doc = Document(BytesIO(response.content))
-    return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
-
+    results = response.json()["result"]
+    return "\n\n".join(hit["payload"]["text"] for hit in results if "text" in hit["payload"])
 
 def get_embedding(text: str) -> List[float]:
     headers = {
@@ -71,8 +79,9 @@ def get_embedding(text: str) -> List[float]:
     return embedding
 
 
-def get_incidents_from_qdrant(prompt: str, top_k: int = 30) -> List[dict]:
+def get_incidents_from_qdrant(prompt: str, top_k: int = 20) -> List[dict]:
     embedded_prompt = get_embedding(prompt)
+    print(f"🔢 Embedding generated successfully, length: {len(embedded_prompt)}")
     headers = {
         "Content-Type": "application/json",
         "api-key": QDRANT_API_KEY,
@@ -87,25 +96,40 @@ def get_incidents_from_qdrant(prompt: str, top_k: int = 30) -> List[dict]:
     print("🔍 Qdrant search status:", response.status_code)
     response.raise_for_status()
     results = response.json().get("result", [])
+    print(f"🔍 Raw Qdrant results count: {len(results)}")
+    if results:
+        print(f"📊 First result score: {results[0].get('score', 'N/A')}")
+        print(f"📄 First result payload keys: {list(results[0].get('payload', {}).keys())}")
     if not results:
+        print("❌ No results returned from Qdrant search")
         return []
 
     incidents = []
     for hit in results:
         payload = hit.get("payload", {})
-        incident_id = payload.get("incident_number")
+        incident_id = payload.get("number")  # Changed from "incident_number" to "number"
         if not incident_id:
             continue
         incidents.append({
             "incident": incident_id,
-            "description": payload.get("incident_description", ""),
+            "job_name": payload.get("job_name", ""),
+            "description": payload.get("description", ""),  # Changed from "incident_description"
+            "impact": payload.get("impact", ""),
             "closure_notes": payload.get("closure_notes", ""),
             "assigned_to": payload.get("assigned_to", ""),
-            "resolved_at": payload.get("resolved_at", ""),
+            "assignment_group": payload.get("assignment_group", ""),
+            "configuration_item": payload.get("configuration_item", ""),
+            "ci_class": payload.get("ci_class", ""),
+            "opened_by": payload.get("opened_by", ""),
+            "resolved_by": payload.get("resolved_by", ""),
+            "closed_by": payload.get("closed_by", ""),
+            "opened_time": payload.get("opened_time", ""),
+            "resolved": payload.get("resolved", ""),
+            "closed": payload.get("closed", ""),
             "priority": payload.get("priority", ""),
             "urgency": payload.get("urgency", ""),
             "state": payload.get("state", ""),
-            "similarity_score": hit.get("score", 0.0)  # ✅ Add similarity score for analytics
+            "similarity_score": hit.get("score", 0.0)
         })
     return incidents
 
@@ -159,6 +183,7 @@ def filter_incidents_for_analytics(incidents: List[dict], user_prompt: str) -> t
 def compute_analytics(incidents: List[dict], user_prompt: str) -> str:
     """
     Premium themed analytics with mobile responsiveness and consistent styling
+    Updated to use new JSON field names and include additional analytics
     """
     if not incidents:
         return """
@@ -234,21 +259,31 @@ def compute_analytics(incidents: List[dict], user_prompt: str) -> str:
 
     # Analytics based on RELEVANT incidents only
     resolved_by_counter = Counter()
+    assignment_group_counter = Counter()
+    ci_class_counter = Counter()
     state_counter = Counter()
 
     for inc in relevant_incidents:
         state = (inc.get("state") or "").strip().lower()
-        resolved_by = (inc.get("assigned_to") or "").strip()
+        resolved_by = (inc.get("resolved_by") or "").strip()  # Updated field name
+        assignment_group = (inc.get("assignment_group") or "").strip()
+        ci_class = (inc.get("ci_class") or "").strip()
 
         if state in closed_states:
             state_counter["Closed"] += 1
-            # Only count for resolver chart if actually resolved
+            # Count resolver only if incident is actually resolved
             if resolved_by:
                 resolved_by_counter[resolved_by] += 1
         elif state in open_states:
             state_counter["Open"] += 1
         else:
             state_counter["Other"] += 1
+        
+        # Count assignment groups and CI classes for all relevant incidents
+        if assignment_group:
+            assignment_group_counter[assignment_group] += 1
+        if ci_class:
+            ci_class_counter[ci_class] += 1
 
     related_count = len(relevant_incidents)
     non_related_count = len(non_relevant_incidents)
@@ -257,13 +292,25 @@ def compute_analytics(incidents: List[dict], user_prompt: str) -> str:
     open_ = state_counter.get("Open", 0)
     other = state_counter.get("Other", 0)
 
-    # Limit resolver chart to top 10 to avoid clutter
+    # Limit charts to top 10 to avoid clutter
     top_resolvers = dict(resolved_by_counter.most_common(10))
+    top_groups = dict(assignment_group_counter.most_common(8))
+    top_ci_classes = dict(ci_class_counter.most_common(6))
 
     uid = uuid.uuid4().hex[:8]
     relevance_chart_id = f"relevanceChart_{uid}"
     resolution_id = f"resolutionChart_{uid}"
     resolver_id = f"resolverChart_{uid}"
+    group_id = f"groupChart_{uid}"
+    ci_class_id = f"ciClassChart_{uid}"
+
+    # Properly escape JSON data for JavaScript
+    resolver_labels_json = json.dumps(list(top_resolvers.keys()), ensure_ascii=False)
+    resolver_data_json = json.dumps(list(top_resolvers.values()), ensure_ascii=False)
+    group_labels_json = json.dumps(list(top_groups.keys()) if top_groups else [], ensure_ascii=False)
+    group_data_json = json.dumps(list(top_groups.values()) if top_groups else [], ensure_ascii=False)
+    ci_class_labels_json = json.dumps(list(top_ci_classes.keys()), ensure_ascii=False)
+    ci_class_data_json = json.dumps(list(top_ci_classes.values()), ensure_ascii=False)
 
     analytics_html = f"""
 <div class="analytics-container">
@@ -302,6 +349,26 @@ def compute_analytics(incidents: List[dict], user_prompt: str) -> str:
                 <canvas id="{resolver_id}"></canvas>
             </div>
         </div>
+
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3>Assignment Groups</h3>
+                <span class="chart-badge">Teams</span>
+            </div>
+            <div class="chart-container">
+                <canvas id="{group_id}"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3>CI Classes</h3>
+                <span class="chart-badge">Categories</span>
+            </div>
+            <div class="chart-container">
+                <canvas id="{ci_class_id}"></canvas>
+            </div>
+        </div>
     </div>
 
     <div class="analytics-summary">
@@ -321,6 +388,14 @@ def compute_analytics(incidents: List[dict], user_prompt: str) -> str:
             <div class="summary-item">
                 <div class="summary-value">{round((closed / related_count * 100) if related_count > 0 else 0, 1)}%</div>
                 <div class="summary-label">Resolution Rate</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-value">{len(top_groups)}</div>
+                <div class="summary-label">Active Teams</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-value">{len(top_ci_classes)}</div>
+                <div class="summary-label">CI Classes</div>
             </div>
         </div>
     </div>
@@ -702,8 +777,8 @@ def compute_analytics(incidents: List[dict], user_prompt: str) -> str:
 
     // Chart 3: Incidents resolved by person (horizontal bar with gradient)
     const resolverCtx = document.getElementById('{resolver_id}').getContext('2d');
-    const resolverLabels = {json.dumps(list(top_resolvers.keys()))};
-    const resolverData = {json.dumps(list(top_resolvers.values()))};
+    const resolverLabels = {resolver_labels_json};
+    const resolverData = {resolver_data_json};
     
     const barGradient = resolverCtx.createLinearGradient(0, 0, 400, 0);
     barGradient.addColorStop(0, '#7e57c2');
@@ -785,14 +860,101 @@ def compute_analytics(incidents: List[dict], user_prompt: str) -> str:
             }}
         }}
     }});
+
+    // Chart 4: Assignment Groups (Pie Chart)
+    const groupCtx = document.getElementById('{group_id}').getContext('2d');
+    const groupLabels = {group_labels_json};
+    const groupData = {group_data_json};
+    
+    // Create diverse colors for groups
+    const groupColors = [
+        '#7e57c2', '#ce93d8', '#4caf50', '#ff9800', 
+        '#2196f3', '#e91e63', '#9c27b0', '#607d8b'
+    ];
+    
+    new Chart(groupCtx, {{
+        type: 'pie',
+        data: {{
+            labels: groupLabels,
+            datasets: [{{
+                data: groupData,
+                backgroundColor: groupColors.slice(0, groupLabels.length),
+                borderWidth: 0,
+                hoverBorderWidth: 3,
+                hoverBorderColor: '#ffffff'
+            }}]
+        }},
+        options: {{
+            ...chartDefaults,
+            plugins: {{
+                ...chartDefaults.plugins,
+                title: {{
+                    display: false
+                }}
+            }}
+        }}
+    }});
+
+    // Chart 5: CI Classes (Polar Area Chart)
+    const ciClassCtx = document.getElementById('{ci_class_id}').getContext('2d');
+    const ciClassLabels = {ci_class_labels_json};
+    const ciClassData = {ci_class_data_json};
+    
+    const ciClassColors = [
+        'rgba(126, 87, 194, 0.8)', 'rgba(206, 147, 216, 0.8)', 
+        'rgba(76, 175, 80, 0.8)', 'rgba(255, 152, 0, 0.8)',
+        'rgba(33, 150, 243, 0.8)', 'rgba(233, 30, 99, 0.8)'
+    ];
+    
+    new Chart(ciClassCtx, {{
+        type: 'polarArea',
+        data: {{
+            labels: ciClassLabels,
+            datasets: [{{
+                data: ciClassData,
+                backgroundColor: ciClassColors.slice(0, ciClassLabels.length),
+                borderWidth: 0,
+                hoverBorderWidth: 3,
+                hoverBorderColor: '#ffffff'
+            }}]
+        }},
+        options: {{
+            ...chartDefaults,
+            plugins: {{
+                ...chartDefaults.plugins,
+                title: {{
+                    display: false
+                }}
+            }},
+            scales: {{
+                r: {{
+                    grid: {{
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    }},
+                    ticks: {{
+                        color: '#b0b0b0',
+                        font: {{
+                            size: 10
+                        }}
+                    }},
+                    pointLabels: {{
+                        color: '#ffffff',
+                        font: {{
+                            size: 12,
+                            weight: '500'
+                        }}
+                    }}
+                }}
+            }}
+        }}
+    }});
 }})();
 </script>
 """
     return analytics_html
 
-
 def call_groq_llm(user_prompt: str, incidents: List[dict]) -> dict:
-    # ✅ KEEPING THE EXACT SAME SYSTEM PROMPT AND LOGIC AS ORIGINAL
+    # ✅ UPDATED SYSTEM PROMPT TO MATCH NEW JSON STRUCTURE
     system_prompt = """
     You are an AI incident support assistant...
 
@@ -830,22 +992,35 @@ def call_groq_llm(user_prompt: str, incidents: List[dict]) -> dict:
 
     try:
         print("⚙️ Loading solution doc and embeddings...")
-        solution_guide = get_docx_text_from_url(SOLUTION_DOC_URL)
+        solution_guide = query_solutions_from_qdrant(user_prompt)
     except Exception as e:
         print(f"❌ Failed to load solution guide: {e}")
         solution_guide = ""
 
-    # ✅ KEEPING THE EXACT SAME FORMATTING AS ORIGINAL - NO CHANGES TO LLM INPUT
+    # ✅ UPDATED FORMATTING TO MATCH NEW JSON STRUCTURE
     formatted_incidents = "\n\n".join([
         f"Incident {i+1}:\n"
         f"Incident ID: {d['incident']}\n"
+        f"Job Name: {d.get('job_name', 'N/A')}\n"
         f"Description: {d['description']}\n"
+        f"Impact: {d.get('impact', 'N/A')}\n"
         f"Closure Notes: {d['closure_notes']}\n"
-        f"Resolved By: {d['assigned_to']}\n"
-        f"Resolved At: {d['resolved_at']}\n"
+        f"Assigned To: {d['assigned_to']}\n"
+        f"Assignment Group: {d.get('assignment_group', 'N/A')}\n"
+        f"Configuration Item: {d.get('configuration_item', 'N/A')}\n"
+        f"CI Class: {d.get('ci_class', 'N/A')}\n"
+        f"Opened By: {d.get('opened_by', 'N/A')}\n"
+        f"Resolved By: {d.get('resolved_by', 'N/A')}\n"
+        f"Closed By: {d.get('closed_by', 'N/A')}\n"
+        f"Opened Time: {d.get('opened_time', 'N/A')}\n"
+        f"Resolved Time: {d.get('resolved', 'N/A')}\n"
+        f"Closed Time: {d.get('closed', 'N/A')}\n"
         f"Priority: {d['priority']}, Urgency: {d['urgency']}, State: {d['state']}"
         for i, d in enumerate(incidents)
     ]) if incidents else "No incidents found."
+    print(f"🔍 Number of incidents passed to LLM: {len(incidents)}")
+    print(f"📋 First few incidents: {incidents[:2] if incidents else 'None'}")
+    print(f"📖 Solution guide length: {len(solution_guide)} characters")
 
     full_prompt = f"""
 User Prompt: \"{user_prompt}\"
@@ -876,10 +1051,9 @@ Relevant Incidents:
     response.raise_for_status()
     content = response.json()["choices"][0]["message"]["content"]
 
-    # ✅ ONLY CHANGE: Updated analytics function with smart filtering
+    # ✅ UPDATED analytics function with smart filtering
     analytics_html = compute_analytics(incidents, user_prompt)
     return {"html": content + analytics_html}
-
 
 @app.post("/chat")
 def chat(request: PromptRequest):
