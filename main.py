@@ -79,7 +79,7 @@ def get_embedding(text: str) -> List[float]:
     return embedding
 
 
-def get_incidents_from_qdrant(prompt: str, top_k: int = 20) -> List[dict]:
+def get_incidents_from_qdrant(prompt: str, top_k: int = 15) -> List[dict]:
     embedded_prompt = get_embedding(prompt)
     print(f"🔢 Embedding generated successfully, length: {len(embedded_prompt)}")
     headers = {
