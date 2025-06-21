@@ -754,7 +754,7 @@ def compute_analytics(incidents: List[dict], user_prompt: str) -> str:
     new Chart(resolutionCtx, {{
         type: 'doughnut',
         data: {{
-            labels: ['Closed/Resolved', 'Open/In Progress', 'Other Status'],
+            labels: ['Closed/Resolved', 'Open/In Progress', 'Pending Status'],
             datasets: [{{
                 data: [{closed}, {open_}, {other}],
                 backgroundColor: [closedGradient, openGradient, otherGradient],
