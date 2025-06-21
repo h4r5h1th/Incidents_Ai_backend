@@ -967,7 +967,7 @@ You MUST respond in raw HTML format only.
 
 **Rules**:
 - For ANY incident-related question (even if not explicitly about resolution), you MUST include:
-  - <h3>Summary of Closure notes</h3> - derived from closure notes of similar incidents and also provided in points not as paragraph
+  - <h3>Summary of Closure notes</h3> - derived from closure notes of similar incidents and also provided in points not as paragraph in a structured manner don't just copy paste those closure note here
   - <h3>Steps to Resolution</h3> - from the solution guide (only if the guide is available)
 - If the user prompt is unrelated to incidents or pointing out mistake in your previous prompt, respond with:
 <p>Sorry, I can only discuss incident-related issues.</p>
@@ -980,13 +980,13 @@ and skip all related sections.
 - DO NOT render any value that is missing, "None", or "Unknown".
 - OMIT entire sections if no valid data is available.
 - For "Summary of Closure notes" - extract and synthesize steps from closure_notes field of incidents
-- For "Steps to Resolution" - use the provided solution guide content
+- For "Steps to Resolution" - use the provided solution guide content and analyze and provide the steps
 - Ensure all HTML output is clean and avoid displaying empty placeholders or filler data.
 - Summary Table should atleast have 3 or more fields like Incident ID, Description, State or closure notes
 
 Respond using valid HTML only. Do not use Markdown.
 
-If incident data exists and is relevant, include these sections (with actual content only):
+If incident data exists and is relevant, include these sections (within the context of actual content only):
 - <h3>Summary</h3><p>...</p>
 - <h3>Summary of Closure notes</h3><ol>...</ol>
 - <h3>Steps to Resolution</h3><ol>...</ol>
