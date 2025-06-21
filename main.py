@@ -375,7 +375,7 @@ def compute_analytics(incidents: List[dict], user_prompt: str) -> str:
         <div class="summary-grid">
             <div class="summary-item">
                 <div class="summary-value">{related_count + non_related_count}</div>
-                <div class="summary-label">Total Retrieved</div>
+                <div class="summary-label">Total Incidents</div>
             </div>
             <div class="summary-item">
                 <div class="summary-value">{related_count}</div>
