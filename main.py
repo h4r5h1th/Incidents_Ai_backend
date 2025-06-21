@@ -39,7 +39,7 @@ QDRANT_COLLECTION = "office_incidents"
 class PromptRequest(BaseModel):
     prompt: str
 
-def query_solutions_from_qdrant(prompt: str, top_k: int = 3) -> str:
+def query_solutions_from_qdrant(prompt: str, top_k: int = 1) -> str:
     embedding = get_embedding(prompt)
     headers = {
         "Content-Type": "application/json",
@@ -79,7 +79,7 @@ def get_embedding(text: str) -> List[float]:
     return embedding
 
 
-def get_incidents_from_qdrant(prompt: str, top_k: int = 15) -> List[dict]:
+def get_incidents_from_qdrant(prompt: str, top_k: int = 10) -> List[dict]:
     embedded_prompt = get_embedding(prompt)
     print(f"🔢 Embedding generated successfully, length: {len(embedded_prompt)}")
     headers = {
@@ -176,7 +176,7 @@ def filter_incidents_for_analytics(incidents: List[dict], user_prompt: str) -> t
             else:
                 non_relevant_incidents.append(incident)
     
-    print(f"🎯 Analytics split: {len(relevant_incidents)} relevant, {len(non_relevant_incidents)} non-relevant")
+    print(f"🎯 Analytics split: {len(relevant_incidents)} relevant, {40 - len(relevant_incidents)} non-relevant")
     return relevant_incidents, non_relevant_incidents
 
 
@@ -286,7 +286,7 @@ def compute_analytics(incidents: List[dict], user_prompt: str) -> str:
             ci_class_counter[ci_class] += 1
 
     related_count = len(relevant_incidents)
-    non_related_count = len(non_relevant_incidents)
+    non_related_count = 40 - len(relevant_incidents)
 
     closed = state_counter.get("Closed", 0)
     open_ = state_counter.get("Open", 0)
@@ -1022,7 +1022,6 @@ If incident data exists and is relevant, include these sections (with actual con
         for i, d in enumerate(incidents)
     ]) if incidents else "No incidents found."
     print(f"🔍 Number of incidents passed to LLM: {len(incidents)}")
-    print(f"📋 First few incidents: {incidents[:2] if incidents else 'None'}")
     print(f"📖 Solution guide length: {len(solution_guide)} characters")
 
     # Extract closure notes for resolution steps
